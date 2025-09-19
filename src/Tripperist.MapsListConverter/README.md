@@ -1,6 +1,6 @@
-# GMapListToKml
+# Tripperist.MapsListConverter
 
-GMapListToKml is a .NET 10 console application that downloads one of your public Google Maps lists and exports it as a Keyhole Markup Language (KML) document. The tool focuses on the data embedded inside the `window.APP_INITIALIZATION_STATE` script block, which contains the list name, description, creator, and every place entry.
+Tripperist.MapsListConverter is a .NET 10 console application that downloads one of your public Google Maps lists and exports it as a Keyhole Markup Language (KML) document. The tool focuses on the data embedded inside the `window.APP_INITIALIZATION_STATE` script block, which contains the list name, description, creator, and every place entry.
 
 ## Requirements
 
@@ -15,12 +15,13 @@ GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --outputFi
 
 ### Arguments
 
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `--inputList <url>` | Yes | Google Maps list URL to download. |
-| `--outputFile <path>` | No  | Destination file name. When omitted, the Google list name is sanitized and used instead. |
-| `--verbose` | No | Enables detailed logging to help troubleshoot scraping issues. |
-| `--help`, `-h` | No | Prints usage information. |
+| Argument              | Required | Description                                                                 |
+|-----------------------|----------|-----------------------------------------------------------------------------|
+| `--inputList <url>`   | Yes      | Google Maps list URL to download and convert into KML.                      |
+| `--outputFile <path>` | No       | Path to the KML file to create. Defaults to the list name with a .kml extension. |
+| `--csv`               | No       | Also export the list as a CSV file.                                         |
+| `--verbose`           | No       | Enables verbose logging for troubleshooting.                                |
+| `--help`, `-h`        | No       | Displays usage information.                                                 |
 
 ### Example
 
@@ -28,7 +29,7 @@ GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --outputFi
 GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --verbose
 ```
 
-The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified.
+The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified. If `--csv` is provided, a CSV file with the same base name will also be created.
 
 ## Notes
 
