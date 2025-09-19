@@ -10,8 +10,7 @@ Tripperist.MapsListConverter is a .NET 10 console application that downloads one
 ## Usage
 
 ```bash
-GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --outputFile "2023.03.21.MSYDelta.kml"
-```
+TripperistMapsListConverter --inputList "{URL of Shared List}" 
 
 ### Arguments
 
@@ -26,7 +25,7 @@ GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --outputFi
 ### Example
 
 ```bash
-GMapListToKml --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --verbose
+Tripperist.MapsListConverter --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --verbose
 ```
 
 The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified. If `--csv` is provided, a CSV file with the same base name will also be created.
