@@ -26,7 +26,6 @@ public sealed class TMapsListScraper
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // ... rest of the file, update all type/class references accordingly ...
     /// <summary>
     /// Downloads the Google Maps list and extracts its metadata and places.
     /// </summary>
