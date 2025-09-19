@@ -10,7 +10,7 @@ Tripperist.MapsListConverter is a .NET 10 console application that downloads one
 ## Usage
 
 ```bash
-TripperistMapsListConverter --inputList "{URL of Shared List}" 
+Tripperist.MapsListConverter --inputList "{URL of Shared List}" 
 ```
 
 ### Arguments
