@@ -26,7 +26,6 @@ public sealed class TMapsListScraper
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // ... rest of the file, update all type/class references accordingly ...
     /// <summary>
     /// Downloads the Google Maps list and extracts its metadata and places.
     /// </summary>
@@ -170,108 +169,30 @@ public sealed class TMapsListScraper
     }
 
     /// <summary>
-    /// Recursively traverses the initialization payload looking for the entry that contains the placelist share URL.
+    /// Recursively traverses the initialization payload looking for the entry that contains the list metadata and places.
     /// </summary>
-    private JsonArray? FindListNode(JsonNode node)
+    private JsonArray? FindListNode(JsonNode? node)
     {
         switch (node)
         {
+            case JsonArray array when LooksLikeListContainer(array):
+                _logger.LogDebug("Found candidate list container with {Count} elements.", array.Count);
+                return array;
+
             case JsonArray array:
+                foreach (var child in array)
                 {
-                    // Scan all elements for a nested array containing the share URL
-                    foreach (var element in array)
+                    if (child is JsonNode childNode)
                     {
-                        if (element is JsonArray candidate)
+                        var result = FindListNode(childNode);
+                        if (result is not null)
                         {
-                            foreach (var item in candidate)
-                            {
-                                if (item is JsonValue value)
-                                {
-                                    // Try to get the value as a string, otherwise skip
-                                    string? shareUrl = null;
-                                    try
-                                    {
-                                        shareUrl = value.GetValue<string?>();
-                                    }
-                                    catch
-                                    {
-                                        // Not a string, ignore
-                                    }
-
-                                    if (!string.IsNullOrEmpty(shareUrl) &&
-                                        shareUrl.Contains("https://www.google.com/maps/placelists/list/", StringComparison.Ordinal))
-                                    {
-                                        _logger.LogDebug("Identified share URL '{ShareUrl}' while traversing the payload.", shareUrl);
-                                        // Return a new JsonArray containing only the found item's value (not the node itself)
-                                        string? valueToAdd = null;
-                                        try
-                                        {
-                                            valueToAdd = value.GetValue<string?>();
-
-                                            if (!string.IsNullOrEmpty(valueToAdd))
-                                            {
-                                                _logger.LogDebug("Raw shareUrl string before manipulation: {ShareUrl}", valueToAdd);
-
-                                                // Remove everything before the first occurrence of [[[" (including the quote)
-                                                int startIdx = valueToAdd.IndexOf("[[[\"");
-                                                string processed = startIdx >= 0 ? valueToAdd.Substring(startIdx) : valueToAdd;
-
-                                                // Remove trailing quotation mark if present
-                                                if (processed.EndsWith("\"", StringComparison.Ordinal))
-                                                {
-                                                    processed = processed.Substring(0, processed.Length - 1);
-                                                }
-
-                                                _logger.LogDebug("Processed shareUrl string after manipulation: {ShareUrl}", processed);
-
-                                                // Parse the resulting string as JSON and return as a JsonArray
-                                                try
-                                                {
-                                                    var jsonArray = JsonNode.Parse(processed) as JsonArray;
-                                                    if (jsonArray != null)
-                                                        return jsonArray;
-                                                }
-                                                catch (Exception ex)
-                                                {
-                                                    _logger.LogError(ex, "Failed to parse processed shareUrl string as JsonArray: {ShareUrl}", processed);
-                                                }
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            // If value can't be extracted, leave as null
-                                        }
-                                    }
-                                }
-                                else if (item is JsonArray nestedArray)
-                                {
-                                    // Recursively search nested arrays
-                                    var result = FindListNode(nestedArray);
-                                    if (result is not null)
-                                    {
-                                        return result;
-                                    }
-                                }
-                                // If item is a JsonObject, you may want to handle it similarly if needed
-                            }
+                            return result;
                         }
                     }
-
-                    // Continue recursive search
-                    foreach (var child in array)
-                    {
-                        if (child is JsonNode childNode)
-                        {
-                            var result = FindListNode(childNode);
-                            if (result is not null)
-                            {
-                                return result;
-                            }
-                        }
-                    }
-
-                    break;
                 }
+
+                break;
 
             case JsonObject obj:
                 foreach (var property in obj)
@@ -297,74 +218,23 @@ public sealed class TMapsListScraper
     /// </summary>
     private TMapsListData ParseListNode(JsonArray listNode)
     {
-        // Defensive: Ensure the array is not empty
-        if (listNode is null || listNode.Count == 0)
-            throw new InvalidOperationException("listNode is empty or null.");
-
-        // Unwrap to get the main data array
-        var innerArray = listNode[0] as JsonArray;
-        if (innerArray is null)
+        if (listNode.Count == 0 || listNode[0] is not JsonArray innerArray)
+        {
             throw new InvalidOperationException("Could not find the expected inner array in listNode.");
-
-        // --- Shared URL ---
-        // The third element (index 2) is a JsonArray of 3 elements, the third of which (index 2) is the shared URL string
-        string? sharedUrl = null;
-        if (innerArray.Count > 2 && innerArray[2] is JsonArray urlArray && urlArray.Count > 2)
-        {
-            sharedUrl = urlArray[2]?.GetValue<string?>();
         }
 
-        // --- Creator ---
-        // The fourth element (index 3) is a JsonArray, first element is the creator
-        string? creator = null;
-        if (innerArray.Count > 3 && innerArray[3] is JsonArray creatorArray && creatorArray.Count > 0)
-        {
-            creator = creatorArray[0]?.GetValue<string?>();
-        }
+        var creator = innerArray.Count > 3 && innerArray[3] is JsonArray creatorArray
+            ? TryGetString(GetElement(creatorArray, 0))
+            : null;
 
-        // --- Name ---
-        // The fifth element (index 4) is the name string
-        string? name = null;
-        if (innerArray.Count > 4)
-        {
-            name = innerArray[4]?.GetValue<string?>();
-        }
-
-        // --- Description ---
-        // The sixth element (index 5) is the description string
-        string? description = null;
-        if (innerArray.Count > 5)
-        {
-            description = innerArray[5]?.GetValue<string?>();
-        }
-
-        // --- Places ---
-        // The ninth element (index 8) is a JsonArray of places
-        var places = new List<TMapsPlace>();
-        if (innerArray.Count > 8 && innerArray[8] is JsonArray placesArray)
-        {
-            foreach (var placeNode in placesArray)
-            {
-                if (placeNode is JsonArray placeArray)
-                {
-                    var place = ParsePlaceNode(placeArray);
-                    if (place is not null)
-                    {
-                        places.Add(place);
-                    }
-                }
-            }
-        }
-
-        // Comments for clarity:
-        // sharedUrl: The shared URL string for the list (not used in GoogleMapsListData, but available if needed)
-        // creator: The creator of the list
-        // name: The name of the list
-        // description: The description of the list
-        // places: The list of places in the list
-
+        var name = TryGetString(GetElement(innerArray, 4));
         if (string.IsNullOrWhiteSpace(name))
+        {
             throw new InvalidOperationException("Unable to determine the list name.");
+        }
+
+        var description = TryGetString(GetElement(innerArray, 5));
+        var places = ParsePlaces(innerArray);
 
         return new TMapsListData(name, description, creator, places);
     }
@@ -375,14 +245,14 @@ public sealed class TMapsListScraper
     /// </summary>
     private TMapsPlace? ParsePlaceNode(JsonArray placeArray)
     {
-        var name = placeArray.Count > 2 ? placeArray[2]?.GetValue<string?>() : null;
+        var name = TryGetString(GetElement(placeArray, 2));
         if (string.IsNullOrWhiteSpace(name))
         {
             _logger.LogDebug("Encountered a place entry without a name. Skipping it to keep the KML clean.");
             return null;
         }
 
-        var notes = placeArray.Count > 3 ? placeArray[3]?.GetValue<string?>() : null;
+        var notes = TryGetString(GetElement(placeArray, 3));
 
         string? address = null;
         double? latitude = null;
@@ -390,7 +260,7 @@ public sealed class TMapsListScraper
 
         if (placeArray.Count > 1 && placeArray[1] is JsonArray locationArray)
         {
-            address = locationArray.Count > 4 ? locationArray[4]?.GetValue<string?>() : null;
+            address = TryGetString(GetElement(locationArray, 4));
 
             if (locationArray.Count > 5 && locationArray[5] is JsonArray coordinatesArray)
             {
@@ -402,6 +272,35 @@ public sealed class TMapsListScraper
         return new TMapsPlace(name, address, notes, latitude, longitude);
     }
 
+    private IReadOnlyList<TMapsPlace> ParsePlaces(JsonArray innerArray)
+    {
+        if (innerArray.Count <= 8 || innerArray[8] is not JsonArray placesArray)
+        {
+            return Array.Empty<TMapsPlace>();
+        }
+
+        var places = new List<TMapsPlace>();
+
+        foreach (var placeNode in placesArray)
+        {
+            if (placeNode is JsonArray placeArray)
+            {
+                var place = ParsePlaceNode(placeArray);
+                if (place is not null)
+                {
+                    places.Add(place);
+                }
+            }
+        }
+
+        return places;
+    }
+
+    private static JsonNode? GetElement(JsonArray array, int index) => index < array.Count ? array[index] : null;
+
+    private static string? TryGetString(JsonNode? node)
+        => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
     private static double? TryGetDouble(JsonArray array, int index)
     {
         if (array.Count > index && array[index] is JsonValue value && value.TryGetValue<double>(out var number))
@@ -410,5 +309,21 @@ public sealed class TMapsListScraper
         }
 
         return null;
+    }
+
+    private static bool LooksLikeListContainer(JsonArray array)
+    {
+        if (array.Count == 0 || array[0] is not JsonArray innerArray)
+        {
+            return false;
+        }
+
+        if (innerArray.Count <= 8)
+        {
+            return false;
+        }
+
+        var name = TryGetString(GetElement(innerArray, 4));
+        return !string.IsNullOrWhiteSpace(name) && innerArray[8] is JsonArray;
     }
 }

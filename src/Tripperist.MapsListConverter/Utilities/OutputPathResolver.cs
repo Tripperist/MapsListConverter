@@ -29,6 +29,30 @@ public static class OutputPathResolver
         return Path.GetFullPath(fileName);
     }
 
+    /// <summary>
+    /// Creates a file path for an additional artifact that should live next to the KML output.
+    /// </summary>
+    /// <param name="primaryPath">The absolute path returned by <see cref="Resolve"/>.</param>
+    /// <param name="newExtension">The extension for the companion file (with or without a leading dot).</param>
+    public static string ResolveCompanionPath(string primaryPath, string newExtension)
+    {
+        if (string.IsNullOrWhiteSpace(primaryPath))
+        {
+            throw new ArgumentException("Primary path must be provided.", nameof(primaryPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(newExtension))
+        {
+            throw new ArgumentException("New extension must be provided.", nameof(newExtension));
+        }
+
+        var normalizedExtension = newExtension.StartsWith('.')
+            ? newExtension
+            : "." + newExtension.TrimStart('.');
+
+        return Path.ChangeExtension(primaryPath, normalizedExtension);
+    }
+
     private static string SanitizeFileName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))

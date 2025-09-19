@@ -9,7 +9,7 @@ namespace Tripperist.MapsListConverter.Options;
 /// </summary>
 public static class AppOptionsParser
 {
-    private static readonly string[] HelpFlags = ["--help", "-h", "-?", "/?"];
+    private static readonly string[] HelpFlags = new[] { "--help", "-h", "-?", "/?" };
 
     /// <summary>
     /// Determines whether the provided argument set is requesting help/usage information.
