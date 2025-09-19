@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,7 +81,7 @@ public static class Program
             using var httpClient = CreateHttpClient();
 
             // Use parsed option for CSV export
-            bool exportCsv = appOptions.Csv;
+            var exportCsv = appOptions.Csv;
 
             var scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
             var listData = await scraper.FetchListAsync(appOptions.InputListUri, cancellation.Token).ConfigureAwait(false);
@@ -94,12 +95,16 @@ public static class Program
 
             if (exportCsv)
             {
-                // Sanitize the name for a valid filename
-                var csvFileName = string.Concat(listData.Name.Split(System.IO.Path.GetInvalidFileNameChars())) + ".csv";
-                using var writer = new System.IO.StreamWriter(csvFileName);
-                using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+                cancellation.Token.ThrowIfCancellationRequested();
+
+                var csvFilePath = Path.ChangeExtension(outputPath, ".csv") ?? outputPath + ".csv";
+
+                await using var csvStream = new FileStream(csvFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                using var streamWriter = new StreamWriter(csvStream);
+                using var csv = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
                 csv.WriteRecords(listData.Places);
-                logger.LogInformation("CSV file created: {CsvFileName}", csvFileName);
+
+                logger.LogInformation("CSV file created at {CsvFilePath}", csvFilePath);
             }
 
             return 0;
