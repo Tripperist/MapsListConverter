@@ -24,7 +24,8 @@ public static class AppOptionsParser
         string? inputListValue = null;
         string? outputFileValue = null;
         var verbose = false;
-        var exportCsv = false; 
+        var exportCsv = false;
+        var detailed = false;
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -68,6 +69,10 @@ public static class AppOptionsParser
                     exportCsv = true;
                     break;
 
+                case "--detailed":
+                    detailed = true;
+                    break;
+
                 default:
                     if (argument.StartsWith("--", StringComparison.Ordinal))
                     {
@@ -97,7 +102,12 @@ public static class AppOptionsParser
             return false;
         }
 
-        options = new AppOptions(inputListUri, string.IsNullOrWhiteSpace(outputFileValue) ? null : outputFileValue, verbose, exportCsv);
+        options = new AppOptions(
+            inputListUri,
+            string.IsNullOrWhiteSpace(outputFileValue) ? null : outputFileValue,
+            verbose,
+            exportCsv,
+            detailed);
         errorMessage = null;
         return true;
     }
@@ -108,7 +118,7 @@ public static class AppOptionsParser
     public static void PrintUsage()
     {
         var executableName = Path.GetFileName(Environment.ProcessPath) ?? "GMapListToKml";
-        Console.WriteLine($"Usage: {executableName} --inputList <url> [--outputFile <path>] [--csv] [--verbose]");
+        Console.WriteLine($"Usage: {executableName} --inputList <url> [--outputFile <path>] [--csv] [--verbose] [--detailed]");
         Console.WriteLine();
         Console.WriteLine("Required arguments:");
         Console.WriteLine("  --inputList     The Google Maps list URL to download and convert into KML.");
@@ -117,6 +127,7 @@ public static class AppOptionsParser
         Console.WriteLine("  --outputFile    Path to the KML file to create. Defaults to the list name with a .kml extension.");
         Console.WriteLine("  --csv           Also export the list as a CSV file.");
         Console.WriteLine("  --verbose       Enables verbose logging for troubleshooting.");
+        Console.WriteLine("  --detailed      Uses a headless browser to collect richer place metadata (requires Playwright).");
         Console.WriteLine("  --help, -h      Displays this usage information.");
     }
 }
