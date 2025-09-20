@@ -27,11 +27,17 @@ public sealed class AppOptions
     /// </summary>
     public bool Csv { get; }
 
-    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv)
+    /// <summary>
+    /// Enables the richer, browser-driven scraping mode which gathers additional metadata.
+    /// </summary>
+    public bool Detailed { get; }
+
+    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv, bool detailed)
     {
         InputListUri = inputListUri ?? throw new ArgumentNullException(nameof(inputListUri));
         OutputFilePath = outputFilePath;
         Verbose = verbose;
         Csv = csv;
+        Detailed = detailed;
     }
 }

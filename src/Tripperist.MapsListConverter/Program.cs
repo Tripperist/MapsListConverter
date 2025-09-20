@@ -78,12 +78,24 @@ public static class Program
 
         try
         {
-            using var httpClient = CreateHttpClient();
+            HttpClient? httpClient = null;
 
             // Use parsed option for CSV export
             var exportCsv = appOptions.Csv;
 
-            var scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
+            IMapsListScraper scraper;
+            if (appOptions.Detailed)
+            {
+                scraper = new TMapsListBrowserScraper(loggerFactory.CreateLogger<TMapsListBrowserScraper>());
+            }
+            else
+            {
+                httpClient = CreateHttpClient();
+                scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
+            }
+
+            try
+            {
             var listData = await scraper.FetchListAsync(appOptions.InputListUri, cancellation.Token).ConfigureAwait(false);
 
             var outputPath = OutputPathResolver.Resolve(appOptions.OutputFilePath, listData.Name);
@@ -108,6 +120,11 @@ public static class Program
             }
 
             return 0;
+            }
+            finally
+            {
+                httpClient?.Dispose();
+            }
         }
         catch (OperationCanceledException)
         {
