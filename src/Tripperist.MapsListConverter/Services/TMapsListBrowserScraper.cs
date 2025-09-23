@@ -19,9 +19,20 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
 {
     private static readonly string[] ResultsSelectors =
     [
+        "div[role='main']",
+        "main[role='main']",
         "div[role='feed']",
         "div[aria-label*='Results' i]",
         "div[aria-label*='Places' i]"
+    ];
+
+    private const string CardButtonSelector = "button.SMP2wb.fHEb6e";
+
+    private static readonly string[] DetailPaneSelectors =
+    [
+        "div[role='main']:has([data-item-id])",
+        "div[role='dialog'] div[role='main']",
+        "div[role='main']"
     ];
 
     private static readonly Regex ReviewCountRegex = new("([0-9][0-9,\\.]*)", RegexOptions.Compiled);
@@ -105,7 +116,7 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
 
         await EnsureAllCardsLoadedAsync(page, resultsContainer, cancellationToken).ConfigureAwait(false);
 
-        var cards = resultsContainer.Locator("div[role='article'], div[jsaction*='mouseover:pane']");
+        var cards = resultsContainer.Locator(CardButtonSelector);
         var cardCount = await cards.CountAsync().ConfigureAwait(false);
         if (cardCount == 0)
         {
@@ -127,9 +138,15 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
             {
                 await card.ScrollIntoViewIfNeededAsync().ConfigureAwait(false);
                 await card.ClickAsync(new LocatorClickOptions { Timeout = 15000 }).ConfigureAwait(false);
-                await WaitForDetailsPaneAsync(page, basePlace.Name, cancellationToken).ConfigureAwait(false);
+                var detailPane = await WaitForDetailsPaneAsync(page, basePlace.Name, cancellationToken).ConfigureAwait(false);
+                if (detailPane is null)
+                {
+                    _logger.LogWarning("Could not locate the detail pane for place '{PlaceName}'. Using initialization payload data instead.", basePlace.Name);
+                    enriched.Add(basePlace);
+                    continue;
+                }
 
-                var detailed = await ExtractPlaceFromDetailPaneAsync(page, basePlace, cancellationToken).ConfigureAwait(false);
+                var detailed = await ExtractPlaceFromDetailPaneAsync(detailPane, basePlace, cancellationToken).ConfigureAwait(false);
                 enriched.Add(detailed);
             }
             catch (PlaywrightException ex)
@@ -159,17 +176,37 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var handle = await page.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions
+                var locator = page.Locator(selector).First;
+                await locator.WaitForAsync(new LocatorWaitForOptions
                 {
                     State = WaitForSelectorState.Visible,
-                    Timeout = 5000
+                    Timeout = 10000
                 }).ConfigureAwait(false);
 
-                if (handle is not null)
+                try
                 {
-                    await handle.DisposeAsync().ConfigureAwait(false);
-                    return page.Locator(selector).First;
+                    await locator.Locator(CardButtonSelector).First.WaitForAsync(new LocatorWaitForOptions
+                    {
+                        State = WaitForSelectorState.Visible,
+                        Timeout = 10000
+                    }).ConfigureAwait(false);
                 }
+                catch (TimeoutException)
+                {
+                    if (!selector.Contains("role='main'", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+                catch (PlaywrightException)
+                {
+                    if (!selector.Contains("role='main'", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                return locator;
             }
             catch (TimeoutException)
             {
@@ -194,7 +231,7 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
             int childCount;
             try
             {
-                childCount = await container.EvaluateAsync<int>("el => el && el.children ? el.children.length : 0").ConfigureAwait(false);
+                childCount = await container.Locator(CardButtonSelector).CountAsync().ConfigureAwait(false);
             }
             catch (PlaywrightException)
             {
@@ -214,27 +251,147 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
             try
             {
                 await container.EvaluateAsync("el => el && (el.scrollTop = el.scrollHeight)").ConfigureAwait(false);
-                await container.FocusAsync(new LocatorFocusOptions { Timeout = 1000 }).ConfigureAwait(false);
-                await container.PressAsync("End").ConfigureAwait(false);
             }
             catch (PlaywrightException)
             {
-                // If the container is not focusable we still continue with scrollHeight adjustments.
             }
 
-            await page.WaitForTimeoutAsync(400).ConfigureAwait(false);
+            var scrolled = false;
+            try
+            {
+                await container.FocusAsync(new LocatorFocusOptions { Timeout = 1000 }).ConfigureAwait(false);
+                await container.PressAsync("End").ConfigureAwait(false);
+                await container.PressAsync("PageDown").ConfigureAwait(false);
+                scrolled = true;
+            }
+            catch (TimeoutException)
+            {
+            }
+            catch (PlaywrightException)
+            {
+            }
+
+            if (!scrolled)
+            {
+                try
+                {
+                    await page.Keyboard.PressAsync("End").ConfigureAwait(false);
+                    await page.Keyboard.PressAsync("PageDown").ConfigureAwait(false);
+                }
+                catch (PlaywrightException)
+                {
+                }
+            }
+
+            await page.WaitForTimeoutAsync(450).ConfigureAwait(false);
         }
     }
 
-    private static async Task WaitForDetailsPaneAsync(IPage page, string placeName, CancellationToken cancellationToken)
+    private async Task<ILocator?> WaitForDetailsPaneAsync(IPage page, string placeName, CancellationToken cancellationToken)
     {
-        var detailHeading = page.Locator("div[role='main'] h1 span[role='text'], div[role='main'] h1");
+        foreach (var selector in DetailPaneSelectors)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var candidate = page.Locator(selector).First;
+                await candidate.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = 15000
+                }).ConfigureAwait(false);
+
+                var cardCount = await candidate.Locator(CardButtonSelector).CountAsync().ConfigureAwait(false);
+                if (cardCount > 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await candidate.Locator("[data-item-id]").First.WaitForAsync(new LocatorWaitForOptions
+                    {
+                        State = WaitForSelectorState.Attached,
+                        Timeout = 10000
+                    }).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                }
+                catch (PlaywrightException)
+                {
+                }
+
+                if (!string.IsNullOrWhiteSpace(placeName))
+                {
+                    var heading = candidate.Locator("h1 span[role='text'], h1 span, h1").First;
+                    try
+                    {
+                        await heading.WaitForAsync(new LocatorWaitForOptions
+                        {
+                            State = WaitForSelectorState.Visible,
+                            Timeout = 10000
+                        }).ConfigureAwait(false);
+
+                        var normalized = placeName.ToLowerInvariant();
+                        var matches = await heading.EvaluateAsync<bool>(
+                            "(el, expected) => (el.innerText || el.textContent || '').toLowerCase().includes(expected)",
+                            normalized).ConfigureAwait(false);
+
+                        if (!matches)
+                        {
+                            await page.WaitForTimeoutAsync(250).ConfigureAwait(false);
+
+                            try
+                            {
+                                matches = await heading.EvaluateAsync<bool>(
+                                    "(el, expected) => (el.innerText || el.textContent || '').toLowerCase().includes(expected)",
+                                    normalized).ConfigureAwait(false);
+                            }
+                            catch (PlaywrightException)
+                            {
+                            }
+
+                            if (!matches)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    catch (TimeoutException)
+                    {
+                    }
+                    catch (PlaywrightException)
+                    {
+                    }
+                }
+
+                return candidate;
+            }
+            catch (TimeoutException)
+            {
+            }
+            catch (PlaywrightException)
+            {
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<TMapsPlace> ExtractPlaceFromDetailPaneAsync(ILocator detailPane, TMapsPlace basePlace, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await detailPane.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Attached, Timeout = 15000 }).ConfigureAwait(false);
+
         try
         {
-            await detailHeading.WaitForAsync(new LocatorWaitForOptions
+            await detailPane.Locator("h1 span[role='text'], h1 span, h1").First.WaitForAsync(new LocatorWaitForOptions
             {
                 State = WaitForSelectorState.Visible,
-                Timeout = 15000
+                Timeout = 10000
             }).ConfigureAwait(false);
         }
         catch (TimeoutException)
@@ -243,37 +400,6 @@ public sealed class TMapsListBrowserScraper : IMapsListScraper
         catch (PlaywrightException)
         {
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!string.IsNullOrWhiteSpace(placeName))
-        {
-            try
-            {
-                await page.WaitForFunctionAsync(
-                    @"({ selector, expected }) => {
-                        const node = document.querySelector(selector);
-                        if (!node) {
-                            return false;
-                        }
-                        const text = (node.innerText || node.textContent || '').trim().toLowerCase();
-                        return text.includes(expected);
-                    }",
-                    new { selector = "div[role='main'] h1", expected = placeName.ToLowerInvariant() },
-                    new PageWaitForFunctionOptions { Timeout = 5000 }).ConfigureAwait(false);
-            }
-            catch (PlaywrightException)
-            {
-            }
-        }
-    }
-
-    private async Task<TMapsPlace> ExtractPlaceFromDetailPaneAsync(IPage page, TMapsPlace basePlace, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var detailPane = page.Locator("div[role='main']");
-        await detailPane.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Attached, Timeout = 15000 }).ConfigureAwait(false);
 
         var detailsJson = await detailPane.EvaluateAsync<string>(@"el => {
             const getText = selector => {
