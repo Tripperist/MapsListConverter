@@ -18,6 +18,7 @@ Tripperist.MapsListConverter --inputList "{URL of Shared List}"
 | Argument              | Required | Description                                                                 |
 |-----------------------|----------|-----------------------------------------------------------------------------|
 | `--inputList <url>`   | Yes      | Google Maps list URL to download and convert into KML.                      |
+| `--placesApiKey <key>`| Yes      | Google Places API key used for Text Search and Place Details enrichment.    |
 | `--outputFile <path>` | No       | Path to the KML file to create. Defaults to the list name with a .kml extension. |
 | `--csv`               | No       | Also export the list as a CSV file.                                         |
 | `--verbose`           | No       | Enables verbose logging for troubleshooting.                                |
@@ -26,7 +27,7 @@ Tripperist.MapsListConverter --inputList "{URL of Shared List}"
 ### Example
 
 ```bash
-Tripperist.MapsListConverter --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --verbose
+Tripperist.MapsListConverter --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --placesApiKey "$GOOGLE_PLACES_API_KEY" --verbose
 ```
 
 The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified. If `--csv` is provided, a CSV file with the same base name will also be created.
@@ -34,4 +35,5 @@ The command above will create a file named `2023.03.21.MSYDelta.kml` (based on t
 ## Notes
 
 * The scraper relies on HtmlAgilityPack so it can robustly locate the initialization script, even if Google changes HTML whitespace or formatting.
+* Each place is enriched via the Google Places Text Search and Place Details APIs to capture authoritative Place IDs, standardized addresses, and coordinates.
 * The generated KML file stores address and notes inside the placemark description. Latitude and longitude are added whenever Google exposes them in the payload.

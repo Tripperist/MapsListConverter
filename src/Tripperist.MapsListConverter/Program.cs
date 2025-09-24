@@ -79,6 +79,7 @@ public static class Program
         try
         {
             using var httpClient = CreateHttpClient();
+            using var placesHttpClient = CreateGooglePlacesHttpClient();
 
             // Use parsed option for CSV export
             var exportCsv = appOptions.Csv;
@@ -86,10 +87,17 @@ public static class Program
             var scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
             var listData = await scraper.FetchListAsync(appOptions.InputListUri, cancellation.Token).ConfigureAwait(false);
 
-            var outputPath = OutputPathResolver.Resolve(appOptions.OutputFilePath, listData.Name);
+            var placesClient = new GooglePlacesClient(
+                placesHttpClient,
+                loggerFactory.CreateLogger<GooglePlacesClient>(),
+                appOptions.GooglePlacesApiKey);
+            var placesEnricher = new GooglePlacesEnricher(placesClient, loggerFactory.CreateLogger<GooglePlacesEnricher>());
+            var enrichedListData = await placesEnricher.EnrichAsync(listData, cancellation.Token).ConfigureAwait(false);
+
+            var outputPath = OutputPathResolver.Resolve(appOptions.OutputFilePath, enrichedListData.Name);
 
             var kmlWriter = new KmlWriter(loggerFactory.CreateLogger<KmlWriter>());
-            await kmlWriter.WriteAsync(listData, outputPath, cancellation.Token).ConfigureAwait(false);
+            await kmlWriter.WriteAsync(enrichedListData, outputPath, cancellation.Token).ConfigureAwait(false);
 
             logger.LogInformation("KML file created at {OutputPath}", outputPath);
 
@@ -102,7 +110,7 @@ public static class Program
                 await using var csvStream = new FileStream(csvFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 using var streamWriter = new StreamWriter(csvStream);
                 using var csv = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
-                csv.WriteRecords(listData.Places);
+                csv.WriteRecords(enrichedListData.Places);
 
                 logger.LogInformation("CSV file created at {CsvFilePath}", csvFilePath);
             }
@@ -140,6 +148,21 @@ public static class Program
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
 
+        return client;
+    }
+
+    /// <summary>
+    /// Creates an <see cref="HttpClient"/> configured for Google Places API requests.
+    /// </summary>
+    private static HttpClient CreateGooglePlacesHttpClient()
+    {
+        var client = new HttpClient
+        {
+            BaseAddress = new Uri("https://places.googleapis.com/"),
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         return client;
     }
 }

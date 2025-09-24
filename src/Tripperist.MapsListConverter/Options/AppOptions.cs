@@ -27,11 +27,22 @@ public sealed class AppOptions
     /// </summary>
     public bool Csv { get; }
 
-    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv)
+    /// <summary>
+    /// API key used to authenticate against the Google Places APIs.
+    /// </summary>
+    public string GooglePlacesApiKey { get; }
+
+    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv, string googlePlacesApiKey)
     {
+        if (string.IsNullOrWhiteSpace(googlePlacesApiKey))
+        {
+            throw new ArgumentException("A valid Google Places API key must be provided.", nameof(googlePlacesApiKey));
+        }
+
         InputListUri = inputListUri ?? throw new ArgumentNullException(nameof(inputListUri));
         OutputFilePath = outputFilePath;
         Verbose = verbose;
         Csv = csv;
+        GooglePlacesApiKey = googlePlacesApiKey;
     }
 }
