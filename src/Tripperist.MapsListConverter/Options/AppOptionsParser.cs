@@ -23,8 +23,9 @@ public static class AppOptionsParser
     {
         string? inputListValue = null;
         string? outputFileValue = null;
+        string? placesApiKeyValue = null;
         var verbose = false;
-        var exportCsv = false; 
+        var exportCsv = false;
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -68,6 +69,17 @@ public static class AppOptionsParser
                     exportCsv = true;
                     break;
 
+                case "--placesApiKey":
+                    if (++index >= args.Length)
+                    {
+                        errorMessage = "The --placesApiKey option requires a value.";
+                        options = null;
+                        return false;
+                    }
+
+                    placesApiKeyValue = args[index];
+                    break;
+
                 default:
                     if (argument.StartsWith("--", StringComparison.Ordinal))
                     {
@@ -97,7 +109,20 @@ public static class AppOptionsParser
             return false;
         }
 
-        options = new AppOptions(inputListUri, string.IsNullOrWhiteSpace(outputFileValue) ? null : outputFileValue, verbose, exportCsv);
+        var resolvedApiKey = ResolveApiKey(placesApiKeyValue);
+        if (string.IsNullOrWhiteSpace(resolvedApiKey))
+        {
+            errorMessage = "A Google Places API key must be supplied either via --placesApiKey or the GOOGLE_PLACES_API_KEY environment variable.";
+            options = null;
+            return false;
+        }
+
+        options = new AppOptions(
+            inputListUri,
+            string.IsNullOrWhiteSpace(outputFileValue) ? null : outputFileValue,
+            verbose,
+            exportCsv,
+            resolvedApiKey);
         errorMessage = null;
         return true;
     }
@@ -108,15 +133,27 @@ public static class AppOptionsParser
     public static void PrintUsage()
     {
         var executableName = Path.GetFileName(Environment.ProcessPath) ?? "GMapListToKml";
-        Console.WriteLine($"Usage: {executableName} --inputList <url> [--outputFile <path>] [--csv] [--verbose]");
+        Console.WriteLine($"Usage: {executableName} --inputList <url> --placesApiKey <key> [--outputFile <path>] [--csv] [--verbose]");
         Console.WriteLine();
         Console.WriteLine("Required arguments:");
         Console.WriteLine("  --inputList     The Google Maps list URL to download and convert into KML.");
+        Console.WriteLine("  --placesApiKey  Google Places API key used for Text Search and Place Details requests.");
         Console.WriteLine();
         Console.WriteLine("Optional arguments:");
         Console.WriteLine("  --outputFile    Path to the KML file to create. Defaults to the list name with a .kml extension.");
         Console.WriteLine("  --csv           Also export the list as a CSV file.");
         Console.WriteLine("  --verbose       Enables verbose logging for troubleshooting.");
         Console.WriteLine("  --help, -h      Displays this usage information.");
+    }
+
+    private static string? ResolveApiKey(string? placesApiKeyValue)
+    {
+        if (!string.IsNullOrWhiteSpace(placesApiKeyValue))
+        {
+            return placesApiKeyValue;
+        }
+
+        var environmentValue = Environment.GetEnvironmentVariable("GOOGLE_PLACES_API_KEY");
+        return string.IsNullOrWhiteSpace(environmentValue) ? null : environmentValue;
     }
 }
