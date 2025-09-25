@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using CsvHelper.Configuration;
 using Tripperist.MapsListConverter.Models;
@@ -21,66 +22,76 @@ public sealed class TMapsPlaceCsvMap : ClassMap<TMapsPlace>
         Map(place => place.Latitude);
         Map(place => place.Longitude);
 
-        Map()
-            .Name("GooglePlaceId")
-            .Convert(args => args.Value.GooglePlaceDetails?.PlaceId);
+        Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.PlaceId : null)
+            .Name("GooglePlaceId");
 
-        Map()
-            .Name("GoogleResourceName")
-            .Convert(args => args.Value.GooglePlaceDetails?.ResourceName);
+        Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.ResourceName : null)
+            .Name("GoogleResourceName");
 
-        Map()
-            .Name("GoogleFormattedAddress")
-            .Convert(args => args.Value.GooglePlaceDetails?.FormattedAddress ?? args.Value.Address);
+        Map(place => place.GooglePlaceDetails?.FormattedAddress ?? place.Address)
+            .Name("GoogleFormattedAddress");
 
-        Map()
-            .Name("GoogleShortFormattedAddress")
-            .Convert(args => args.Value.GooglePlaceDetails?.ShortFormattedAddress);
+        Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.ShortFormattedAddress : null)
+            .Name("GoogleShortFormattedAddress");
 
-        Map()
-            .Name("GoogleAddressDescriptor")
-            .Convert(args => args.Value.GooglePlaceDetails?.AddressDescriptor);
+        Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.AddressDescriptor : null)
+            .Name("GoogleAddressDescriptor");
 
-        Map()
-            .Name("GoogleAdrFormatAddress")
-            .Convert(args => args.Value.GooglePlaceDetails?.AdrFormatAddress);
+        Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.AdrFormatAddress : null)
+            .Name("GoogleAdrFormatAddress");
 
-        Map()
-            .Name("GoogleLatitude")
-            .Convert(args => args.Value.GooglePlaceDetails?.Location?.Latitude ?? args.Value.Latitude);
+        Map(place => place.GooglePlaceDetails?.Location?.Latitude ?? place.Latitude)
+            .Name("GoogleLatitude");
 
-        Map()
-            .Name("GoogleLongitude")
-            .Convert(args => args.Value.GooglePlaceDetails?.Location?.Longitude ?? args.Value.Longitude);
+        Map(place => place.GooglePlaceDetails?.Location?.Longitude ?? place.Longitude)
+            .Name("GoogleLongitude");
 
-        Map()
-            .Name("GoogleLocation")
-            .Convert(args => args.Value.GooglePlaceDetails?.Location is { } location
-                ? string.Format(CultureInfo.InvariantCulture, "{0},{1}", location.Latitude, location.Longitude)
-                : null);
+        Map(place => place.GooglePlaceDetails != null ? FormatLocation(place.GooglePlaceDetails.Location) : null)
+            .Name("GoogleLocation");
 
-        Map()
-            .Name("GoogleViewport")
-            .Convert(args => args.Value.GooglePlaceDetails?.Viewport is { } viewport
-                ? string.Format(
-                    CultureInfo.InvariantCulture,
-                    "Low:{0},{1}|High:{2},{3}",
-                    viewport.Low.Latitude,
-                    viewport.Low.Longitude,
-                    viewport.High.Latitude,
-                    viewport.High.Longitude)
-                : null);
+        Map(place => place.GooglePlaceDetails != null ? FormatViewport(place.GooglePlaceDetails.Viewport) : null)
+            .Name("GoogleViewport");
 
-        Map()
-            .Name("GoogleTypes")
-            .Convert(args => args.Value.GooglePlaceDetails?.Types is { Count: > 0 } types
-                ? string.Join(';', types)
-                : null);
+        Map(place => place.GooglePlaceDetails != null ? JoinValues(place.GooglePlaceDetails.Types) : null)
+            .Name("GoogleTypes");
 
-        Map()
-            .Name("GoogleAttributions")
-            .Convert(args => args.Value.GooglePlaceDetails?.Attributions is { Count: > 0 } attributions
-                ? string.Join(" | ", attributions)
-                : null);
+        Map(place => place.GooglePlaceDetails != null ? JoinValues(place.GooglePlaceDetails.Attributions, " | ") : null)
+            .Name("GoogleAttributions");
+    }
+
+    private static string? FormatLocation(GooglePlaceLocation? location)
+    {
+        if (location == null)
+        {
+            return null;
+        }
+
+        return string.Format(CultureInfo.InvariantCulture, "{0},{1}", location.Latitude, location.Longitude);
+    }
+
+    private static string? FormatViewport(GooglePlaceViewport? viewport)
+    {
+        if (viewport?.Low == null || viewport.High == null)
+        {
+            return null;
+        }
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "Low:{0},{1}|High:{2},{3}",
+            viewport.Low.Latitude,
+            viewport.Low.Longitude,
+            viewport.High.Latitude,
+            viewport.High.Longitude);
+    }
+
+    private static string? JoinValues(IReadOnlyList<string>? values, string separator = ";")
+    {
+        if (values is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        return string.Join(separator, values);
     }
 }
