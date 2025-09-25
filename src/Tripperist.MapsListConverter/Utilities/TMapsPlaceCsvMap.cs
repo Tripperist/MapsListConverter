@@ -28,7 +28,9 @@ public sealed class TMapsPlaceCsvMap : ClassMap<TMapsPlace>
         Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.ResourceName : null)
             .Name("GoogleResourceName");
 
-        Map(place => place.GooglePlaceDetails?.FormattedAddress ?? place.Address)
+        Map(place => place.GooglePlaceDetails != null && !string.IsNullOrWhiteSpace(place.GooglePlaceDetails.FormattedAddress)
+            ? place.GooglePlaceDetails.FormattedAddress
+            : place.Address)
             .Name("GoogleFormattedAddress");
 
         Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.ShortFormattedAddress : null)
@@ -40,10 +42,14 @@ public sealed class TMapsPlaceCsvMap : ClassMap<TMapsPlace>
         Map(place => place.GooglePlaceDetails != null ? place.GooglePlaceDetails.AdrFormatAddress : null)
             .Name("GoogleAdrFormatAddress");
 
-        Map(place => place.GooglePlaceDetails?.Location?.Latitude ?? place.Latitude)
+        Map(place => place.GooglePlaceDetails != null && place.GooglePlaceDetails.Location != null
+                ? place.GooglePlaceDetails.Location.Latitude
+                : place.Latitude)
             .Name("GoogleLatitude");
 
-        Map(place => place.GooglePlaceDetails?.Location?.Longitude ?? place.Longitude)
+        Map(place => place.GooglePlaceDetails != null && place.GooglePlaceDetails.Location != null
+                ? place.GooglePlaceDetails.Location.Longitude
+                : place.Longitude)
             .Name("GoogleLongitude");
 
         Map(place => place.GooglePlaceDetails != null ? FormatLocation(place.GooglePlaceDetails.Location) : null)
