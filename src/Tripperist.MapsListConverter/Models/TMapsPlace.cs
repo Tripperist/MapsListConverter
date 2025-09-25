@@ -1,3 +1,5 @@
+using System;
+
 namespace Tripperist.MapsListConverter.Models;
 
 /// <summary>
@@ -30,12 +32,29 @@ public class TMapsPlace
     /// </summary>
     public double? Longitude { get; }
 
-    public TMapsPlace(string name, string? address, string? notes, double? latitude, double? longitude)
+    /// <summary>
+    /// Optional metadata retrieved from the Google Places API Text Search and Details endpoints.
+    /// </summary>
+    public GooglePlaceDetails? GooglePlaceDetails { get; }
+
+    public TMapsPlace(
+        string name,
+        string? address,
+        string? notes,
+        double? latitude,
+        double? longitude,
+        GooglePlaceDetails? googlePlaceDetails = null)
     {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Place name must be provided.", nameof(name));
+        }
+
         Name = name;
         Address = address;
         Notes = notes;
         Latitude = latitude;
         Longitude = longitude;
+        GooglePlaceDetails = googlePlaceDetails;
     }
 }

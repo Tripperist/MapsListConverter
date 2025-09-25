@@ -21,6 +21,7 @@ Tripperist.MapsListConverter --inputList "{URL of Shared List}"
 | `--outputFile <path>` | No       | Path to the KML file to create. Defaults to the list name with a .kml extension. |
 | `--csv`               | No       | Also export the list as a CSV file.                                         |
 | `--verbose`           | No       | Enables verbose logging for troubleshooting.                                |
+| `--placesApiKey <key>`| No       | Google Places API key used to enrich place metadata and obtain Place IDs.   |
 | `--help`, `-h`        | No       | Displays usage information.                                                 |
 
 ### Example
@@ -29,7 +30,7 @@ Tripperist.MapsListConverter --inputList "{URL of Shared List}"
 Tripperist.MapsListConverter --inputList "https://maps.app.goo.gl/Dr5BWZN1Z1RL2fu3A" --verbose
 ```
 
-The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified. If `--csv` is provided, a CSV file with the same base name will also be created.
+The command above will create a file named `2023.03.21.MSYDelta.kml` (based on the list name) in the current directory unless `--outputFile` is specified. If `--csv` is provided, a CSV file with the same base name will also be created. When `--placesApiKey` is supplied the tool will query the Google Places Text Search and Details APIs to attach the official Place ID, resource name, attributions, formatted addresses, address descriptors, coordinates, viewport bounds, and type metadata to each place. The CSV export includes dedicated columns for each enriched field alongside the original list data, and the generated KML embeds the same information within placemark extended data entries.
 
 ## Notes
 
