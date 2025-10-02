@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,14 +42,15 @@ public static class Program
         ConfigureLogging(builder.Logging, verboseRequested);
         ConfigureServices(builder.Services);
 
-        await using var host = builder.Build();
+        using var host = builder.Build();
         using var cancellation = new CancellationTokenSource();
         ConsoleCancelEventHandler cancellationHandler = (_, eventArgs) =>
         {
             eventArgs.Cancel = true;
             cancellation.Cancel();
         };
-        Console.CancelKeyPress += cancellationHandler;
+
+        System.Console.CancelKeyPress += cancellationHandler;
 
         var resources = host.Services.GetRequiredService<ResourceCatalog>();
         var logger = host.Services.GetRequiredService<ILoggerFactory>()
@@ -68,7 +70,7 @@ public static class Program
         finally
         {
             logger.LogInformation(resources.Log("ApplicationCompleted", CultureInfo.CurrentCulture));
-            Console.CancelKeyPress -= cancellationHandler;
+            System.Console.CancelKeyPress -= cancellationHandler;
         }
     }
 
@@ -84,7 +86,7 @@ public static class Program
         services.AddSingleton<IKmlExportService, KmlExportService>();
         services.AddSingleton<ICsvExportService, CsvExportService>();
         services.AddSingleton<IMapsListScraper, PlaywrightMapsListScraper>();
-        services.AddHttpClient<IGooglePlacesClient, GooglePlacesClient>();
+        services.AddSingleton<IGooglePlacesClient, GooglePlacesClient>();
 
         services.AddOptions<GooglePlacesSettings>()
             .BindConfiguration(GooglePlacesSettings.SectionName)

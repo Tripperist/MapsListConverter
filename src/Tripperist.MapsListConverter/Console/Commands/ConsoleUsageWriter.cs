@@ -1,5 +1,7 @@
 namespace Tripperist.MapsListConverter.Console.Commands;
 
+using System;
+
 /// <summary>
 /// Emits usage instructions to standard output. Keeping this logic isolated facilitates localization later.
 /// </summary>

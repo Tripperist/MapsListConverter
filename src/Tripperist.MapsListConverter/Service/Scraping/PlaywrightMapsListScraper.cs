@@ -25,7 +25,7 @@ public sealed class PlaywrightMapsListScraper(ResourceCatalog resources, ILogger
 
         _logger.LogInformation(_resources.Log("ScrapingList", CultureInfo.CurrentCulture), listUri);
 
-        await using var playwright = await Playwright.CreateAsync().ConfigureAwait(false);
+        using var playwright = await Playwright.CreateAsync().ConfigureAwait(false);
         await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = true
