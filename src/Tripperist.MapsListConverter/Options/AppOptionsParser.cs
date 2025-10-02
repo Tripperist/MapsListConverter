@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 
-namespace Tripperist.MapsListConverter.Options;
+namespace Tripperist.Console.ListExport.Options;
 
 /// <summary>
 /// Parses command line arguments into a strongly typed <see cref="AppOptions"/> instance.
@@ -21,10 +21,10 @@ public static class AppOptionsParser
     /// </summary>
     public static bool TryParse(string[] args, out AppOptions? options, out string? errorMessage)
     {
-        string? inputListValue = null;
-        string? outputFileValue = null;
+        string? inputUrlValue = null;
+        string? kmlFileValue = null;
         var verbose = false;
-        var exportCsv = false; 
+        var exportCsv = false;
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -38,26 +38,26 @@ public static class AppOptionsParser
 
             switch (argument)
             {
-                case "--inputList":
+                case "--inputUrl":
                     if (++index >= args.Length)
                     {
-                        errorMessage = "The --inputList option requires a value.";
+                        errorMessage = "The --inputUrl option requires a value.";
                         options = null;
                         return false;
                     }
 
-                    inputListValue = args[index];
+                    inputUrlValue = args[index];
                     break;
 
-                case "--outputFile":
+                case "--kml":
                     if (++index >= args.Length)
                     {
-                        errorMessage = "The --outputFile option requires a value.";
+                        errorMessage = "The --kml option requires a value.";
                         options = null;
                         return false;
                     }
 
-                    outputFileValue = args[index];
+                    kmlFileValue = args[index];
                     break;
 
                 case "--verbose":
@@ -83,21 +83,21 @@ public static class AppOptionsParser
             }
         }
 
-        if (string.IsNullOrWhiteSpace(inputListValue))
+        if (string.IsNullOrWhiteSpace(inputUrlValue))
         {
-            errorMessage = "The --inputList argument is required.";
+            errorMessage = "The --inputUrl argument is required.";
             options = null;
             return false;
         }
 
-        if (!Uri.TryCreate(inputListValue, UriKind.Absolute, out var inputListUri))
+        if (!Uri.TryCreate(inputUrlValue, UriKind.Absolute, out var inputListUri))
         {
-            errorMessage = "The value provided to --inputList must be a valid absolute URL.";
+            errorMessage = "The value provided to --inputUrl must be a valid absolute URL.";
             options = null;
             return false;
         }
 
-        options = new AppOptions(inputListUri, string.IsNullOrWhiteSpace(outputFileValue) ? null : outputFileValue, verbose, exportCsv);
+        options = new AppOptions(inputListUri, string.IsNullOrWhiteSpace(kmlFileValue) ? null : kmlFileValue, verbose, exportCsv);
         errorMessage = null;
         return true;
     }
@@ -108,13 +108,13 @@ public static class AppOptionsParser
     public static void PrintUsage()
     {
         var executableName = Path.GetFileName(Environment.ProcessPath) ?? "GMapListToKml";
-        Console.WriteLine($"Usage: {executableName} --inputList <url> [--outputFile <path>] [--csv] [--verbose]");
+        Console.WriteLine($"Usage: {executableName} --inputUrl <url> [--kml <path>] [--csv] [--verbose]");
         Console.WriteLine();
         Console.WriteLine("Required arguments:");
-        Console.WriteLine("  --inputList     The Google Maps list URL to download and convert into KML.");
+        Console.WriteLine("  --inputUrl      The Google Maps list URL to download and convert into KML.");
         Console.WriteLine();
         Console.WriteLine("Optional arguments:");
-        Console.WriteLine("  --outputFile    Path to the KML file to create. Defaults to the list name with a .kml extension.");
+        Console.WriteLine("  --kml           Path to the KML file to create. Defaults to the list name with a .kml extension.");
         Console.WriteLine("  --csv           Also export the list as a CSV file.");
         Console.WriteLine("  --verbose       Enables verbose logging for troubleshooting.");
         Console.WriteLine("  --help, -h      Displays this usage information.");

@@ -1,32 +1,33 @@
 using System;
-using System.Globalization;
-using System.IO;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using CsvHelper;
-using Tripperist.MapsListConverter.Models;
-using Tripperist.MapsListConverter.Options;
-using Tripperist.MapsListConverter.Services;
-using Tripperist.MapsListConverter.Utilities;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Tripperist.Console.ListExport;
+using Tripperist.Console.ListExport.Options;
+using Tripperist.Core.Commands;
+using Tripperist.Core.Configuration;
+using Tripperist.Service.CsvExport;
+using Tripperist.Service.GoogleMaps;
+using Tripperist.Service.GooglePlaces;
+using Tripperist.Service.KmlExport;
 
-namespace Tripperist.MapsListConverter;
+namespace Tripperist.Console.ListExport;
 
 /// <summary>
-/// Entry point of the application. Responsible for orchestrating the overall execution flow and
-/// wiring up infrastructure such as logging and HTTP dependencies.
+/// Entry point responsible for bootstrapping dependency injection, logging, configuration and command execution.
 /// </summary>
 public static class Program
 {
     /// <summary>
-    /// Main method that coordinates argument parsing, data retrieval, and KML file generation.
+    /// Main method that orchestrates argument parsing, service configuration and command execution.
     /// </summary>
     /// <param name="args">Command line arguments provided by the user.</param>
-    /// <returns>Zero when the application finishes successfully, otherwise a non-zero error code.</returns>
+    /// <returns>Zero when the command succeeds, otherwise a non-zero exit code.</returns>
     public static async Task<int> Main(string[] args)
     {
-        // A dedicated help flag is easier for users than throwing an error, so we short-circuit early.
         if (AppOptionsParser.ShouldShowHelp(args))
         {
             AppOptionsParser.PrintUsage();
@@ -44,33 +45,17 @@ public static class Program
             return 1;
         }
 
-        // We immediately store the parsed options in a non-nullable variable so the remainder of the method can use it safely.
         var appOptions = options ?? throw new InvalidOperationException("Options parsing returned a null result.");
 
-        // The logger factory is built once so every service shares the same formatting and level configuration.
-        using var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.ClearProviders();
-            builder.AddSimpleConsole(options =>
-            {
-                options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
-                options.SingleLine = true;
-            });
-            builder.SetMinimumLevel(appOptions.Verbose ? LogLevel.Debug : LogLevel.Information);
-        });
-
-        var logger = loggerFactory.CreateLogger(typeof(Program));
-
-        using var cancellation = new CancellationTokenSource();
+        using var cancellationSource = new CancellationTokenSource();
         ConsoleCancelEventHandler? cancelHandler = null;
+        // Translating Ctrl+C into cooperative cancellation keeps the exporting pipeline in a consistent state.
         cancelHandler = (_, eventArgs) =>
         {
-            // Cancelling prevents the process from terminating abruptly, giving us time to clean up resources.
             eventArgs.Cancel = true;
-            if (!cancellation.IsCancellationRequested)
+            if (!cancellationSource.IsCancellationRequested)
             {
-                logger.LogWarning("Cancellation requested. Attempting to stop gracefully...");
-                cancellation.Cancel();
+                cancellationSource.Cancel();
             }
         };
 
@@ -78,68 +63,60 @@ public static class Program
 
         try
         {
-            using var httpClient = CreateHttpClient();
+            var builder = Host.CreateApplicationBuilder();
+            builder.Configuration
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables(prefix: "TRIPPERIST_");
 
-            // Use parsed option for CSV export
-            var exportCsv = appOptions.Csv;
-
-            var scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
-            var listData = await scraper.FetchListAsync(appOptions.InputListUri, cancellation.Token).ConfigureAwait(false);
-
-            var outputPath = OutputPathResolver.Resolve(appOptions.OutputFilePath, listData.Name);
-
-            var kmlWriter = new KmlWriter(loggerFactory.CreateLogger<KmlWriter>());
-            await kmlWriter.WriteAsync(listData, outputPath, cancellation.Token).ConfigureAwait(false);
-
-            logger.LogInformation("KML file created at {OutputPath}", outputPath);
-
-            if (exportCsv)
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSimpleConsole(options =>
             {
-                cancellation.Token.ThrowIfCancellationRequested();
+                options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+                options.SingleLine = true;
+            });
+            builder.Logging.SetMinimumLevel(appOptions.Verbose ? LogLevel.Debug : LogLevel.Information);
 
-                var csvFilePath = Path.ChangeExtension(outputPath, ".csv") ?? outputPath + ".csv";
+            builder.Services
+                .AddOptions<GooglePlacesOptions>()
+                .Bind(builder.Configuration.GetSection(GooglePlacesOptions.SectionName))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
 
-                await using var csvStream = new FileStream(csvFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                using var streamWriter = new StreamWriter(csvStream);
-                using var csv = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
-                csv.WriteRecords(listData.Places);
+            builder.Services.AddSingleton<IPlaywrightFactory, PlaywrightFactory>();
+            builder.Services.AddSingleton<IListScrapingService, PlaywrightListScrapingService>();
+            builder.Services.AddSingleton<IPlacesEnrichmentService, PlacesEnrichmentService>();
+            builder.Services.AddSingleton<ICsvExportService, CsvExportService>();
+            builder.Services.AddSingleton<KmlWriter>();
+            builder.Services.AddSingleton<CommandHandler<AppOptions>, ScrapeListCommandHandler>();
 
-                logger.LogInformation("CSV file created at {CsvFilePath}", csvFilePath);
-            }
+            builder.Services.AddHttpClient<IGooglePlacesClient, GooglePlacesClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://maps.googleapis.com/maps/api/");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
 
-            return 0;
+            await using var host = builder.Build();
+            using var scope = host.Services.CreateScope();
+            var handler = scope.ServiceProvider.GetRequiredService<CommandHandler<AppOptions>>();
+            return await handler.ExecuteAsync(appOptions, cancellationSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Operation cancelled by user.");
             return 1;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while generating the KML file.");
+            Console.Error.WriteLine($"An unexpected error occurred: {ex.Message}");
+            if (appOptions.Verbose)
+            {
+                Console.Error.WriteLine(ex);
+            }
+
             return 1;
         }
         finally
         {
             Console.CancelKeyPress -= cancelHandler;
         }
-    }
-
-    /// <summary>
-    /// Creates and configures an <see cref="HttpClient"/> instance tailored for Tripperist Maps requests.
-    /// </summary>
-    private static HttpClient CreateHttpClient()
-    {
-        // We mimic a standard browser so Tripperist returns the same HTML a user would see in practice.
-        var client = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(45)
-        };
-
-        client.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-
-        return client;
     }
 }

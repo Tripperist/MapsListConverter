@@ -6,10 +6,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using Tripperist.MapsListConverter.Models;
+using Tripperist.Core.GoogleMaps;
 using Microsoft.Extensions.Logging;
 
-namespace Tripperist.MapsListConverter.Services;
+namespace Tripperist.Service.KmlExport;
 
 /// <summary>
 /// Responsible for translating the parsed Tripperist Maps data into a valid KML document.
@@ -26,7 +26,7 @@ public sealed class KmlWriter
     /// <summary>
     /// Writes the provided list to the given file path as a Keyhole Markup Language (KML) document.
     /// </summary>
-    public async Task WriteAsync(TMapsListData list, string outputPath, CancellationToken cancellationToken = default)
+    public async Task WriteAsync(GoogleMapsList list, string outputPath, CancellationToken cancellationToken = default)
     {
         if (list is null)
         {
@@ -83,7 +83,7 @@ public sealed class KmlWriter
         _logger.LogDebug("Finished writing {Count} placemarks to {OutputPath}.", list.Places.Count, outputPath);
     }
 
-    private static async Task WritePlacemarkAsync(XmlWriter writer, TMapsPlace place)
+    private static async Task WritePlacemarkAsync(XmlWriter writer, GoogleMapsPlace place)
     {
         await writer.WriteStartElementAsync(null, "Placemark", null).ConfigureAwait(false);
         await writer.WriteElementStringAsync(null, "name", null, place.Name).ConfigureAwait(false);
@@ -94,9 +94,22 @@ public sealed class KmlWriter
             descriptionParts.Add(place.Address!);
         }
 
-        if (!string.IsNullOrWhiteSpace(place.Notes))
+        if (!string.IsNullOrWhiteSpace(place.Note))
         {
-            descriptionParts.Add(place.Notes!);
+            descriptionParts.Add(place.Note!);
+        }
+
+        if (!string.IsNullOrWhiteSpace(place.PlaceId))
+        {
+            descriptionParts.Add($"Place ID: {place.PlaceId}");
+        }
+
+        if (place.Rating.HasValue)
+        {
+            var ratingText = place.ReviewCount.HasValue
+                ? string.Format(CultureInfo.InvariantCulture, "Rating: {0:F1} ({1} reviews)", place.Rating.Value, place.ReviewCount.Value)
+                : string.Format(CultureInfo.InvariantCulture, "Rating: {0:F1}", place.Rating.Value);
+            descriptionParts.Add(ratingText);
         }
 
         if (descriptionParts.Count > 0)

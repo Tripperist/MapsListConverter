@@ -1,6 +1,6 @@
 using System;
 
-namespace Tripperist.MapsListConverter.Options;
+namespace Tripperist.Console.ListExport.Options;
 
 /// <summary>
 /// Strongly typed representation of the command line options accepted by the application.
@@ -15,7 +15,7 @@ public sealed class AppOptions
     /// <summary>
     /// Optional path to the KML file to create. If omitted a filename is generated from the list name.
     /// </summary>
-    public string? OutputFilePath { get; }
+    public string? KmlFilePath { get; }
 
     /// <summary>
     /// Enables verbose logging to help diagnose issues while scraping.
@@ -25,13 +25,13 @@ public sealed class AppOptions
     /// <summary>
     /// Indicates whether a CSV export should be produced alongside the KML file.
     /// </summary>
-    public bool Csv { get; }
+    public bool GenerateCsv { get; }
 
-    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv)
+    public AppOptions(Uri inputListUri, string? kmlFilePath, bool verbose, bool generateCsv)
     {
         InputListUri = inputListUri ?? throw new ArgumentNullException(nameof(inputListUri));
-        OutputFilePath = outputFilePath;
+        KmlFilePath = kmlFilePath;
         Verbose = verbose;
-        Csv = csv;
+        GenerateCsv = generateCsv;
     }
 }

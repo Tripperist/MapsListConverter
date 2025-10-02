@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ListContainerNotFound" xml:space="preserve">
+    <value>Unable to locate the scrollable list container on the page.</value>
+  </data>
+  <data name="ListParsingFailed" xml:space="preserve">
+    <value>The Google Maps list could not be parsed from the rendered HTML.</value>
+  </data>
+  <data name="GooglePlacesApiKeyMissing" xml:space="preserve">
+    <value>The Google Places API key is not configured. Set GooglePlaces:ApiKey in configuration or the TRIPPERIST_GooglePlaces__ApiKey environment variable.</value>
+  </data>
+</root>

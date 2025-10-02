@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Tripperist.MapsListConverter.Utilities;
+namespace Tripperist.Core.IO;
 
 /// <summary>
 /// Converts user input into a safe and absolute file path for the generated KML document.

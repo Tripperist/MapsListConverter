@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ScrapeStarting" xml:space="preserve">
+    <value>Starting Playwright navigation for {0}.</value>
+  </data>
+  <data name="ScrollProgress" xml:space="preserve">
+    <value>Scroll iteration {0} discovered {1} places so far.</value>
+  </data>
+  <data name="ScrollCompleted" xml:space="preserve">
+    <value>Completed scrolling with {0} places discovered.</value>
+  </data>
+  <data name="ParsingCompleted" xml:space="preserve">
+    <value>Parsed list "{0}" containing {1} places.</value>
+  </data>
+  <data name="PlacesEnrichmentStarting" xml:space="preserve">
+    <value>Enriching place "{0}" using the Google Places API.</value>
+  </data>
+  <data name="PlacesEnrichmentCompleted" xml:space="preserve">
+    <value>Finished enrichment for {0} places.</value>
+  </data>
+  <data name="CsvExportStarting" xml:space="preserve">
+    <value>Writing CSV export to {0}.</value>
+  </data>
+  <data name="CsvExportCompleted" xml:space="preserve">
+    <value>CSV export completed at {0}.</value>
+  </data>
+  <data name="KmlExportCompleted" xml:space="preserve">
+    <value>KML export completed at {0}.</value>
+  </data>
+</root>
