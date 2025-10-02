@@ -8,6 +8,7 @@ using CsvHelper;
 using Tripperist.MapsListConverter.Models;
 using Tripperist.MapsListConverter.Options;
 using Tripperist.MapsListConverter.Services;
+using Tripperist.MapsListConverter.Services.GooglePlaces;
 using Tripperist.MapsListConverter.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -86,6 +87,25 @@ public static class Program
             var scraper = new TMapsListScraper(httpClient, loggerFactory.CreateLogger<TMapsListScraper>());
             var listData = await scraper.FetchListAsync(appOptions.InputListUri, cancellation.Token).ConfigureAwait(false);
 
+            if (!string.IsNullOrWhiteSpace(appOptions.GooglePlacesApiKey))
+            {
+                using var placesHttpClient = CreateGooglePlacesHttpClient();
+                var placesClient = new GooglePlacesClient(
+                    placesHttpClient,
+                    loggerFactory.CreateLogger<GooglePlacesClient>(),
+                    appOptions.GooglePlacesApiKey);
+
+                var placesEnricher = new GooglePlacesEnricher(
+                    placesClient,
+                    loggerFactory.CreateLogger<GooglePlacesEnricher>());
+
+                listData = await placesEnricher.EnrichAsync(listData, cancellation.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                logger.LogInformation("Google Places API key not provided. Skipping Places enrichment step.");
+            }
+
             var outputPath = OutputPathResolver.Resolve(appOptions.OutputFilePath, listData.Name);
 
             var kmlWriter = new KmlWriter(loggerFactory.CreateLogger<KmlWriter>());
@@ -102,7 +122,8 @@ public static class Program
                 await using var csvStream = new FileStream(csvFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 using var streamWriter = new StreamWriter(csvStream);
                 using var csv = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
-                csv.WriteRecords(listData.Places);
+                csv.Context.RegisterClassMap<TMapsPlaceCsvMap>();
+                await csv.WriteRecordsAsync(listData.Places, cancellation.Token).ConfigureAwait(false);
 
                 logger.LogInformation("CSV file created at {CsvFilePath}", csvFilePath);
             }
@@ -139,6 +160,22 @@ public static class Program
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+
+        return client;
+    }
+
+    /// <summary>
+    /// Creates and configures an <see cref="HttpClient"/> instance for Google Places requests.
+    /// </summary>
+    private static HttpClient CreateGooglePlacesHttpClient()
+    {
+        var client = new HttpClient
+        {
+            BaseAddress = new Uri("https://places.googleapis.com/"),
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
         return client;
     }

@@ -27,11 +27,17 @@ public sealed class AppOptions
     /// </summary>
     public bool Csv { get; }
 
-    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv)
+    /// <summary>
+    /// Optional Google Places API key used to enrich each place with authoritative metadata.
+    /// </summary>
+    public string? GooglePlacesApiKey { get; }
+
+    public AppOptions(Uri inputListUri, string? outputFilePath, bool verbose, bool csv, string? googlePlacesApiKey)
     {
         InputListUri = inputListUri ?? throw new ArgumentNullException(nameof(inputListUri));
         OutputFilePath = outputFilePath;
         Verbose = verbose;
         Csv = csv;
+        GooglePlacesApiKey = string.IsNullOrWhiteSpace(googlePlacesApiKey) ? null : googlePlacesApiKey;
     }
 }

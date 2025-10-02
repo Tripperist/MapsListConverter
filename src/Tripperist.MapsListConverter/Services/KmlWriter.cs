@@ -99,10 +99,60 @@ public sealed class KmlWriter
             descriptionParts.Add(place.Notes!);
         }
 
+        var googleDetails = place.GooglePlaceDetails;
+        if (googleDetails is not null && !string.IsNullOrWhiteSpace(googleDetails.FormattedAddress))
+        {
+            if (descriptionParts.Count == 0 || !string.Equals(googleDetails.FormattedAddress, place.Address, StringComparison.Ordinal))
+            {
+                descriptionParts.Add($"Google formatted address: {googleDetails.FormattedAddress}");
+            }
+        }
+
         if (descriptionParts.Count > 0)
         {
             await writer.WriteStartElementAsync(null, "description", null).ConfigureAwait(false);
             await writer.WriteCDataAsync(string.Join("\n\n", descriptionParts)).ConfigureAwait(false);
+            await writer.WriteEndElementAsync().ConfigureAwait(false);
+        }
+
+        if (googleDetails is not null)
+        {
+            await writer.WriteStartElementAsync(null, "ExtendedData", null).ConfigureAwait(false);
+
+            await WriteDataElementAsync(writer, "GooglePlaceId", googleDetails.PlaceId).ConfigureAwait(false);
+            await WriteDataElementAsync(writer, "GoogleResourceName", googleDetails.ResourceName).ConfigureAwait(false);
+
+            var attributions = googleDetails.Attributions is { Count: > 0 }
+                ? string.Join(" | ", googleDetails.Attributions)
+                : null;
+            await WriteDataElementAsync(writer, "GoogleAttributions", attributions).ConfigureAwait(false);
+
+            await WriteDataElementAsync(writer, "GoogleFormattedAddress", googleDetails.FormattedAddress).ConfigureAwait(false);
+            await WriteDataElementAsync(writer, "GoogleShortFormattedAddress", googleDetails.ShortFormattedAddress).ConfigureAwait(false);
+            await WriteDataElementAsync(writer, "GoogleAddressDescriptor", googleDetails.AddressDescriptor).ConfigureAwait(false);
+            await WriteDataElementAsync(writer, "GoogleAdrFormatAddress", googleDetails.AdrFormatAddress).ConfigureAwait(false);
+
+            var locationValue = googleDetails.Location is { } location
+                ? string.Format(CultureInfo.InvariantCulture, "{0},{1}", location.Latitude, location.Longitude)
+                : null;
+            await WriteDataElementAsync(writer, "GoogleLocation", locationValue).ConfigureAwait(false);
+
+            var viewportValue = googleDetails.Viewport is { } viewport
+                ? string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Low:{0},{1}|High:{2},{3}",
+                    viewport.Low.Latitude,
+                    viewport.Low.Longitude,
+                    viewport.High.Latitude,
+                    viewport.High.Longitude)
+                : null;
+            await WriteDataElementAsync(writer, "GoogleViewport", viewportValue).ConfigureAwait(false);
+
+            var typesValue = googleDetails.Types is { Count: > 0 }
+                ? string.Join(';', googleDetails.Types)
+                : null;
+            await WriteDataElementAsync(writer, "GoogleTypes", typesValue).ConfigureAwait(false);
+
             await writer.WriteEndElementAsync().ConfigureAwait(false);
         }
 
@@ -114,6 +164,24 @@ public sealed class KmlWriter
             await writer.WriteEndElementAsync().ConfigureAwait(false);
         }
 
+        await writer.WriteEndElementAsync().ConfigureAwait(false);
+    }
+
+    private static async Task WriteDataElementAsync(XmlWriter writer, string name, string? value)
+    {
+        if (writer is null)
+        {
+            throw new ArgumentNullException(nameof(writer));
+        }
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        await writer.WriteStartElementAsync(null, "Data", null).ConfigureAwait(false);
+        await writer.WriteAttributeStringAsync(null, "name", null, name).ConfigureAwait(false);
+        await writer.WriteElementStringAsync(null, "value", null, value).ConfigureAwait(false);
         await writer.WriteEndElementAsync().ConfigureAwait(false);
     }
 }
