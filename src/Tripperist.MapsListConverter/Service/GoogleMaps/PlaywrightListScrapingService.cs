@@ -31,7 +31,7 @@ public sealed class PlaywrightListScrapingService(IPlaywrightFactory playwrightF
         // We resolve resource strings lazily so that missing resources become obvious during logging.
         _logger.LogInformation(_logMessages.GetString("ScrapeStarting"), listUri);
 
-        await using var playwright = await _playwrightFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+        using var playwright = await _playwrightFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
         await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = true
@@ -48,7 +48,26 @@ public sealed class PlaywrightListScrapingService(IPlaywrightFactory playwrightF
             WaitUntil = WaitUntilState.NetworkIdle
         }).ConfigureAwait(false);
 
-        await EnsureAllPlacesLoadedAsync(page, verboseLogging, cancellationToken).ConfigureAwait(false);
+        //await EnsureAllPlacesLoadedAsync(page, verboseLogging, cancellationToken).ConfigureAwait(false);
+
+        // Use a locator to find all <script> tags with a 'nonce' attribute.
+        var scriptLocator = page.Locator("script[nonce]").Nth(1);
+
+
+        // Wait for the filtered locator to be available and get its inner text.
+        string scriptContent = await scriptLocator.InnerTextAsync();
+
+        // Check if the script was found and print its content.
+        if (scriptContent != null)
+        {
+            System.Console.WriteLine("Found script content:");
+            System.Console.WriteLine(scriptContent);
+        }
+        else
+        {
+            System.Console.WriteLine("Script with matching content not found.");
+        }
+
         var result = await ExtractListAsync(page, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation(_logMessages.GetString("ParsingCompleted"), result.Name, result.Places.Count);
@@ -59,18 +78,13 @@ public sealed class PlaywrightListScrapingService(IPlaywrightFactory playwrightF
     {
         ArgumentNullException.ThrowIfNull(page);
 
-        var feedLocator = page.Locator("div[role='feed']");
-        var container = await feedLocator.First.WaitForAsync(new LocatorWaitForOptions
+        ILocator feedLocator = page.Locator("div[role='main']");
+        await feedLocator.First.WaitForAsync(new LocatorWaitForOptions
         {
             Timeout = 30_000
         }).ConfigureAwait(false);
 
-        if (container is null)
-        {
-            throw new InvalidOperationException(_errorMessages.GetString("ListContainerNotFound"));
-        }
-
-        var articleLocator = feedLocator.Locator("div[role='article']");
+        var articleLocator = feedLocator.Locator("div.m6QErb.XiKgde");
         var stableIterations = 0;
         var iteration = 0;
 
@@ -136,18 +150,18 @@ public sealed class PlaywrightListScrapingService(IPlaywrightFactory playwrightF
                 return trimmed.length === 0 ? null : trimmed;
             };
 
-            const main = document.querySelector('[role=\"main\"]') ?? document.body;
-            const feed = document.querySelector('div[role=\"feed\"]');
+            const main = document.querySelector('[role=\""main\""]') ?? document.body;
+            const feed = document.querySelector('div[role=\""main\""]');
 
             const places = [];
             if (feed) {
-                const articles = Array.from(feed.querySelectorAll('div[role=\"article\"]'));
+                const articles = Array.from(feed.querySelectorAll('div.m6QErb.XiKgde'));
                 for (const article of articles) {
-                    const nameElement = article.querySelector('[role=\"heading\"], [aria-level=\"3\"], h3');
-                    const noteElement = article.querySelector('[aria-label=\"Notes\"], [data-item-id*=\"note\"], div[data-section-id=\"note\"]');
+                    const nameElement = article.querySelector('div.fontHeadlineSmall.rZF81c');
+                    const noteElement = article.querySelector('textarea[aria-label=\""Notes\""]');
                     const imageElement = article.querySelector('img');
-                    const ratingElement = article.querySelector('span[aria-label*=\"stars\"]');
-                    const reviewElement = article.querySelector('span[aria-label*=\"reviews\"], span:has-text(\"reviews\")');
+                    const ratingElement = article.querySelector('span.MW4etd[aria-hidden*=\""true\""]');
+                    const reviewElement = article.querySelector('span.UY7F9[aria-hidden*=\""true\""]');
 
                     let rating = null;
                     let reviewCount = null;
@@ -198,9 +212,9 @@ public sealed class PlaywrightListScrapingService(IPlaywrightFactory playwrightF
                 }
             }
 
-            const titleElement = main.querySelector('h1');
-            const descriptionElement = main.querySelector('[aria-label=\"List description\"], [data-section-id=\"description\"]');
-            const creatorElement = main.querySelector('a[href*=\"/maps/contrib\"], [data-section-id=\"owner\"] span');
+            const titleElement = main.querySelector('span.WNNZR.fontTitleLarge');
+            const descriptionElement = main.querySelector('[aria-label=\""List description\""], [data-section-id=\""description\""]');
+            const creatorElement = main.querySelector('a[href*=\""/maps/contrib\""], [data-section-id=\""owner\""] span');
 
             return {
                 name: sanitize(titleElement?.textContent ?? document.title ?? null),

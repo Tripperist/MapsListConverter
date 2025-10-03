@@ -6,7 +6,7 @@
     },
     "Tripperist.MapsListConverter": {
       "commandName": "Project",
-      "commandLineArgs": "--inputList \"https://maps.app.goo.gl/cQsygW5qLD5F4tb47\" --csv",
+      "commandLineArgs": "--inputUrl \"https://maps.app.goo.gl/cQsygW5qLD5F4tb47\" --csv",
       "workingDirectory": "."
     }
   }

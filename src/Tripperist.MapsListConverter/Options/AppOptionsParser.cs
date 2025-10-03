@@ -108,15 +108,15 @@ public static class AppOptionsParser
     public static void PrintUsage()
     {
         var executableName = Path.GetFileName(Environment.ProcessPath) ?? "GMapListToKml";
-        Console.WriteLine($"Usage: {executableName} --inputUrl <url> [--kml <path>] [--csv] [--verbose]");
-        Console.WriteLine();
-        Console.WriteLine("Required arguments:");
-        Console.WriteLine("  --inputUrl      The Google Maps list URL to download and convert into KML.");
-        Console.WriteLine();
-        Console.WriteLine("Optional arguments:");
-        Console.WriteLine("  --kml           Path to the KML file to create. Defaults to the list name with a .kml extension.");
-        Console.WriteLine("  --csv           Also export the list as a CSV file.");
-        Console.WriteLine("  --verbose       Enables verbose logging for troubleshooting.");
-        Console.WriteLine("  --help, -h      Displays this usage information.");
+        System.Console.WriteLine($"Usage: {executableName} --inputUrl <url> [--kml <path>] [--csv] [--verbose]");
+        System.Console.WriteLine();
+        System.Console.WriteLine("Required arguments:");
+        System.Console.WriteLine("  --inputUrl      The Google Maps list URL to download and convert into KML.");
+        System.Console.WriteLine();
+        System.Console.WriteLine("Optional arguments:");
+        System.Console.WriteLine("  --kml           Path to the KML file to create. Defaults to the list name with a .kml extension.");
+        System.Console.WriteLine("  --csv           Also export the list as a CSV file.");
+        System.Console.WriteLine("  --verbose       Enables verbose logging for troubleshooting.");
+        System.Console.WriteLine("  --help, -h      Displays this usage information.");
     }
 }

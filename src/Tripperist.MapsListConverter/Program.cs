@@ -1,10 +1,15 @@
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+
+using Microsoft.Extensions.Options;
 using Tripperist.Console.ListExport;
 using Tripperist.Console.ListExport.Options;
 using Tripperist.Core.Commands;
@@ -38,7 +43,7 @@ public static class Program
         {
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
-                Console.Error.WriteLine(errorMessage);
+                System.Console.Error.WriteLine(errorMessage);
             }
 
             AppOptionsParser.PrintUsage();
@@ -59,7 +64,7 @@ public static class Program
             }
         };
 
-        Console.CancelKeyPress += cancelHandler;
+        System.Console.CancelKeyPress += cancelHandler;
 
         try
         {
@@ -79,7 +84,6 @@ public static class Program
             builder.Services
                 .AddOptions<GooglePlacesOptions>()
                 .Bind(builder.Configuration.GetSection(GooglePlacesOptions.SectionName))
-                .ValidateDataAnnotations()
                 .ValidateOnStart();
 
             builder.Services.AddSingleton<IPlaywrightFactory, PlaywrightFactory>();
@@ -95,7 +99,7 @@ public static class Program
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
 
-            await using var host = builder.Build();
+            using var host = builder.Build();
             using var scope = host.Services.CreateScope();
             var handler = scope.ServiceProvider.GetRequiredService<CommandHandler<AppOptions>>();
             return await handler.ExecuteAsync(appOptions, cancellationSource.Token).ConfigureAwait(false);
@@ -106,17 +110,17 @@ public static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"An unexpected error occurred: {ex.Message}");
+            System.Console.Error.WriteLine($"An unexpected error occurred: {ex.Message}");
             if (appOptions.Verbose)
             {
-                Console.Error.WriteLine(ex);
+                System.Console.Error.WriteLine(ex);
             }
 
             return 1;
         }
         finally
         {
-            Console.CancelKeyPress -= cancelHandler;
+            System.Console.CancelKeyPress -= cancelHandler;
         }
     }
 }
